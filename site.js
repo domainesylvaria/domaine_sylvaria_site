@@ -3,22 +3,55 @@ var C=window.SITE||{};
 var b=document.querySelector('.burger'),n=document.getElementById('nav');
 if(b&&n){b.addEventListener('click',function(){var o=n.classList.toggle('open');b.setAttribute('aria-expanded',o?'true':'false');});}
 var t=new Date().toISOString().slice(0,10);
-document.querySelectorAll('input[type=date]').forEach(function(d){d.min=t;});
+document.querySelectorAll('input[type=date]').forEach(function(d){if(d.hasAttribute('data-past'))d.max=t;else d.min=t;});
+function fold(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
+function isForeign(v){var s=fold(v);return !!s&&!/^(france|francais|francaise|fr\b|metropole|guadeloupe|martinique|reunion|guyane|mayotte|nouvelle.caledonie|polynesie)/.test(s);}
+var natEl=document.getElementById('r-nat'),polEl=document.getElementById('bk-police');
+if(natEl&&polEl){var tgPol=function(){polEl.hidden=!isForeign(natEl.value);};natEl.addEventListener('input',tgPol);natEl.addEventListener('change',tgPol);if(natEl.form)natEl.form.addEventListener('reset',function(){setTimeout(tgPol,0);});tgPol();}
 function val(f,k){var e=f.elements[k];return e?String(e.value||'').trim():'';}
 function say(f,msg,ok){var s=f.querySelector('.status');if(s){s.textContent=msg;s.className='status '+(ok?'ok':'err');}}
 function fr(d){var p=d.split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:d;}
-document.querySelectorAll('form[data-site-form]').forEach(function(f){
+function showDone(mode,contact,recap,hasPolice){
+ var box=document.getElementById('bk-done');
+ if(!box)return;
+ var mail=contact.indexOf('@')>0;
+ box.innerHTML='';
+ var h=document.createElement('p');h.className='bk-done-h';
+ h.textContent=mode==='auto'?'✓ Votre réservation est enregistrée et confirmée.':'✓ Votre demande a bien été envoyée.';
+ box.appendChild(h);
+ var p=document.createElement('p');
+ if(mode==='auto')p.textContent=mail?'Un e-mail de confirmation vient de vous être envoyé à '+contact+'. Pensez à vérifier vos courriers indésirables.':'Nous vous contacterons au '+contact+' pour confirmer les détails.';
+ else p.textContent='Elle sera effective après validation de l’établissement, qui vous répond très vite. '+(mail?'Vous recevrez un e-mail à '+contact+' dès qu’elle sera acceptée (ou si nous ne pouvons pas y donner suite). Pensez à vérifier vos courriers indésirables.':'Nous vous contacterons au '+contact+'.');
+ box.appendChild(p);
+ if(hasPolice){var pp=document.createElement('p');pp.textContent='Votre fiche de police est bien enregistrée : il ne vous reste qu’à la signer à votre arrivée.';box.appendChild(pp);}
+ if(recap){
+  var ul=document.createElement('ul');ul.className='clean';
+  recap.split(String.fromCharCode(10)).forEach(function(l){if(l){var li=document.createElement('li');li.textContent=l;ul.appendChild(li);}});
+  box.appendChild(ul);
+ }
+ var b=document.createElement('button');b.type='button';b.className='btn ghost';b.textContent='Faire une autre demande';
+ b.addEventListener('click',function(){box.hidden=true;var fm=document.getElementById('bk-form');if(fm&&fm.scrollIntoView)fm.scrollIntoView({behavior:'smooth',block:'start'});});
+ box.appendChild(b);
+ box.hidden=false;
+ if(box.scrollIntoView)box.scrollIntoView({behavior:'smooth',block:'center'});
+}document.querySelectorAll('form[data-site-form]').forEach(function(f){
  f.addEventListener('submit',function(e){
   e.preventDefault();
   var kind=f.getAttribute('data-site-form');
   var name=val(f,'name'),contact=val(f,'contact'),message=val(f,'message'),subject=val(f,'subject');
-  var userMsg=message,rc='';
-  var siteBody=function(){var pl={};try{pl=JSON.parse(val(f,'payload')||'{}');}catch(x){}return {action:'siteRequest',id:C.id,kind:val(f,'kind')||'stay',name:name,contact:contact,message:userMsg,recap:rc,roomId:val(f,'roomid'),arrival:val(f,'arrival'),departure:val(f,'departure'),adults:Number(val(f,'adults'))||0,children:Number(val(f,'children'))||0,payload:pl,website:val(f,'website')};};
+  var userMsg=message,rc='',nat='',police=null;
+  var siteBody=function(){var pl={};try{pl=JSON.parse(val(f,'payload')||'{}');}catch(x){}return {action:'siteRequest',id:C.id,kind:val(f,'kind')||'stay',name:name,contact:contact,message:userMsg,recap:rc,roomId:val(f,'roomid'),arrival:val(f,'arrival'),departure:val(f,'departure'),adults:Number(val(f,'adults'))||0,children:Number(val(f,'children'))||0,payload:pl,nationality:nat,police:police,website:val(f,'website')};};
   if(!name||!contact){say(f,'Indiquez votre nom et un moyen de vous répondre (e-mail ou téléphone).',false);return;}
   if(kind==='request'){
    var a=val(f,'arrival'),d=val(f,'departure');
    if(!a||!d||d<a){say(f,'Choisissez vos dates dans le calendrier ou le formulaire.',false);return;}
    rc=val(f,'recap');
+   nat=val(f,'nationality');
+   if(isForeign(nat)){
+    police={lastName:val(f,'pl_last'),firstNames:val(f,'pl_first'),birthDate:val(f,'pl_birth'),birthPlace:val(f,'pl_place'),nationality:nat,address:val(f,'pl_addr'),phone:val(f,'pl_phone'),email:val(f,'pl_email')||(contact.indexOf('@')>0?contact:''),childrenText:val(f,'pl_kids')};
+    if(!police.lastName||!police.firstNames||!police.birthDate||!police.birthPlace||!police.address||!police.phone||!police.email){say(f,'Pour les voyageurs de nationalité étrangère, merci de compléter la fiche de police (tous les champs sont obligatoires, sauf les enfants).',false);return;}
+   }
+   if(nat)rc=(rc?rc+String.fromCharCode(10):'')+'Nationalité : '+nat+(police?' (fiche de police remplie)':'');
    var lines=rc?rc.split(String.fromCharCode(10)):['Demande de réservation','Hébergement : '+(val(f,'room')||'peu importe'),'Du '+fr(a)+' au '+fr(d),'Personnes : '+(val(f,'adults')||'1')+' adulte(s)'+(Number(val(f,'children'))>0?', '+val(f,'children')+' enfant(s)':'')];
    message=lines.join('\n')+(message?'\n\n'+message:'');
    subject='Réservation';
@@ -28,7 +61,7 @@ document.querySelectorAll('form[data-site-form]').forEach(function(f){
   if(C.connector&&C.id){
    fetch(C.connector,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(kind==='request'?siteBody():{action:'livretMessage',id:C.id,kind:'contact',name:name,contact:contact,subject:subject.slice(0,60),message:message,website:val(f,'website')})})
    .then(function(r){return r.text();}).then(function(t){var j={};try{j=JSON.parse(t);}catch(x){}
-     if(j.status==='success'){say(f,kind==='request'?(j.mode==='auto'?'Merci, votre réservation est confirmée : un e-mail de confirmation vous est envoyé.':'Merci, votre demande est bien reçue. La réservation sera effective après validation de l’établissement, qui vous répond très vite.'):'Merci, votre message est bien parti. Nous vous répondons rapidement.',true);f.reset();}
+     if(j.status==='success'){if(kind==='request'){showDone(j.mode,contact,rc,!!police);}else{say(f,'Merci, votre message est bien parti. Nous vous répondons rapidement.',true);}f.reset();}
      else{say(f,j.message||'Envoi impossible pour le moment : écrivez-nous directement par e-mail.',false);}})
    .catch(function(){say(f,'Envoi impossible pour le moment : écrivez-nous directement par e-mail.',false);})
    .then(function(){if(btn)btn.disabled=false;});
