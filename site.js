@@ -21,7 +21,7 @@ function showDone(mode,contact,recap,hasPolice){
  box.appendChild(h);
  var p=document.createElement('p');
  if(mode==='auto')p.textContent=mail?'Un e-mail de confirmation vient de vous être envoyé à '+contact+'. Pensez à vérifier vos courriers indésirables.':'Nous vous contacterons au '+contact+' pour confirmer les détails.';
- else p.textContent='Elle sera effective après validation de l’établissement, qui vous répond très vite. '+(mail?'Vous recevrez un e-mail à '+contact+' dès qu’elle sera acceptée (ou si nous ne pouvons pas y donner suite). Pensez à vérifier vos courriers indésirables.':'Nous vous contacterons au '+contact+'.');
+ else p.textContent='Elle sera effective après validation de l’établissement. '+(mail?'Vous recevrez un e-mail à '+contact+' dès qu’elle sera acceptée (ou si nous ne pouvons pas y donner suite). Pensez à vérifier vos courriers indésirables.':'Nous vous contacterons au '+contact+'.');
  box.appendChild(p);
  if(hasPolice){var pp=document.createElement('p');pp.textContent='Votre fiche de police est bien enregistrée : il ne vous reste qu’à la signer à votre arrivée.';box.appendChild(pp);}
  if(recap){
@@ -46,10 +46,13 @@ function showDone(mode,contact,recap,hasPolice){
    var a=val(f,'arrival'),d=val(f,'departure');
    if(!a||!d||d<a){say(f,'Choisissez vos dates dans le calendrier ou le formulaire.',false);return;}
    rc=val(f,'recap');
+   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(contact)){say(f,'Indiquez une adresse e-mail valide : c’est là que nous vous envoyons la confirmation.',false);return;}
+   var phone=val(f,'phone');
    nat=val(f,'nationality');
+   if(phone)rc=(rc?rc+String.fromCharCode(10):'')+'Téléphone : '+phone;
    if(isForeign(nat)){
-    police={lastName:val(f,'pl_last'),firstNames:val(f,'pl_first'),birthDate:val(f,'pl_birth'),birthPlace:val(f,'pl_place'),nationality:nat,address:val(f,'pl_addr'),phone:val(f,'pl_phone'),email:val(f,'pl_email')||(contact.indexOf('@')>0?contact:''),childrenText:val(f,'pl_kids')};
-    if(!police.lastName||!police.firstNames||!police.birthDate||!police.birthPlace||!police.address||!police.phone||!police.email){say(f,'Pour les voyageurs de nationalité étrangère, merci de compléter la fiche de police (tous les champs sont obligatoires, sauf les enfants).',false);return;}
+    police={lastName:val(f,'pl_last'),firstNames:val(f,'pl_first'),birthDate:val(f,'pl_birth'),birthPlace:val(f,'pl_place'),nationality:nat,address:val(f,'pl_addr'),phone:phone||'non renseigné',email:contact,childrenText:val(f,'pl_kids')};
+    if(!police.lastName||!police.firstNames||!police.birthDate||!police.birthPlace||!police.address){say(f,'Pour les voyageurs de nationalité étrangère, merci de compléter la fiche de police (tous les champs sont obligatoires, sauf les enfants).',false);return;}
    }
    if(nat)rc=(rc?rc+String.fromCharCode(10):'')+'Nationalité : '+nat+(police?' (fiche de police remplie)':'');
    var lines=rc?rc.split(String.fromCharCode(10)):['Demande de réservation','Hébergement : '+(val(f,'room')||'peu importe'),'Du '+fr(a)+' au '+fr(d),'Personnes : '+(val(f,'adults')||'1')+' adulte(s)'+(Number(val(f,'children'))>0?', '+val(f,'children')+' enfant(s)':'')];
